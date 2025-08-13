@@ -1,32 +1,40 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import Todo from "../models/Todo"
 import authenticate from "../middleware/auth"
+import { createSuccessResponse, createErrorResponse } from '../utils/response';
+import { AuthenticatedRequest } from '../types/express';
 const router= express.Router();
 
 router.use(authenticate);
 
-router.get("/", async (req: any, res) => {
+router.get("/", async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
     try {
-        const todos = await Todo.find({ userId: req.userId });
-        res.json(todos);
+        const todos = await Todo.find({ userId: authReq.userId });
+        res.json(createSuccessResponse(todos));
     } catch (e) {
-        res.status(500).json({ error: "Failed to fetch todos" });
+        res.status(500).json(createErrorResponse("Failed to fetch todos"));
     }
 });
 
 
-router.post("/", async(req: any, res)=>{
-    try{
-        const{text}= req.body;
-        const newTodo= new Todo ({text, completed:false, userId: req.userId});
+router.post("/", async(req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    try {
+        const { text } = req.body;
+        if (!text || !text.trim()) {
+            return res.status(400).json(createErrorResponse("Todo text is required"));
+        }
+        const newTodo = new Todo({ text: text.trim(), completed: false, userId: authReq.userId });
         await newTodo.save();
-        res.json(newTodo);
-    } catch(e){
-        res.status(400).json({ error: "Failed to create todo" });
+        res.json(createSuccessResponse(newTodo, "Todo created successfully"));
+    } catch (e) {
+        res.status(400).json(createErrorResponse("Failed to create todo"));
     }
 })
 
-router.patch("/:id", async (req: any, res) => {
+router.patch("/:id", async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
   try {
     const { completed, text } = req.body;
     const updateData: any = {};
@@ -35,7 +43,7 @@ router.patch("/:id", async (req: any, res) => {
     if (text !== undefined) updateData.text = text.trim();
     
     const updatedTodo = await Todo.findOneAndUpdate(
-      { _id: req.params.id, userId: req.userId },
+      { _id: req.params.id, userId: authReq.userId },
       updateData,
       { new: true }
     );
@@ -43,38 +51,40 @@ router.patch("/:id", async (req: any, res) => {
     if (!updatedTodo) {
       return res.status(404).json({ error: "Todo not found" });
     }
-    
+
     res.json(updatedTodo);
   } catch (e) {
     res.status(400).json({ error: "Failed to update todo" });
   }
 });
 
-router.put("/:id", async (req: any, res)=>{
-    try{
+router.put("/:id", async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    try {
         const updatedTodo = await Todo.findOneAndUpdate(
-            { _id: req.params.id, userId: req.userId },
+            { _id: req.params.id, userId: authReq.userId },
             req.body,
-            {new: true}
+            { new: true }
         );
         if (!updatedTodo) {
           return res.status(404).json({ error: "Todo not found" });
         }
         res.json(updatedTodo);
-    } catch( e){
+    } catch (e) {
         res.status(400).json({ error: "Failed to update todo" });
     }
 })
 
-router.delete("/:id", async (req: any, res) => {
+router.delete("/:id", async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
   try {
-    const deletedTodo = await Todo.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    const deletedTodo = await Todo.findOneAndDelete({ _id: req.params.id, userId: authReq.userId });
     if (!deletedTodo) {
-      return res.status(404).json({ error: "Todo not found" });
+      return res.status(404).json(createErrorResponse("Todo not found"));
     }
-    res.json({ message: "Todo deleted" });
+    res.json(createSuccessResponse(null, "Todo deleted successfully"));
   } catch (err) {
-    res.status(400).json({ error: "Failed to delete todo" });
+    res.status(400).json(createErrorResponse("Failed to delete todo"));
   }
 });
 

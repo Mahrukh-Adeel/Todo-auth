@@ -1,6 +1,7 @@
 import { useState } from "react";
 import ErrorPopup from "./ErrorPopup";
 import Toast from "./Toast";
+import { Eye, EyeOff } from "lucide-react";
 
 interface SignupFormProps {
   onRegister: (username: string, email: string, password: string) => Promise<void>;
@@ -15,18 +16,19 @@ function SignupForm({ onRegister, onBack }: SignupFormProps) {
     const [error, setError] = useState('');
     const [showErrorPopup, setShowErrorPopup] = useState(false);
     const [showErrorToast, setShowErrorToast] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!username || !email || !password) {
             setError('Please fill in all fields');
-            setShowErrorPopup(true); // Show popup instead of inline error
+            setShowErrorPopup(true); 
             return;
         }
 
         if (password.length < 8) {
             setError('Password must be at least 8 characters');
-            setShowErrorToast(true); // Show toast for validation errors
+            setShowErrorToast(true); 
             return;
         }
 
@@ -38,7 +40,7 @@ function SignupForm({ onRegister, onBack }: SignupFormProps) {
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Registration failed';
             setError(errorMessage);
-            setShowErrorPopup(true); // Show popup for API errors
+            setShowErrorPopup(true); 
         } finally {
             setLoading(false);
         }
@@ -80,14 +82,23 @@ function SignupForm({ onRegister, onBack }: SignupFormProps) {
                             className="w-full p-3 border border-pink-300 rounded-lg"
                             disabled={loading}
                         />
-                        <input
-                            type="password"
-                            placeholder="Password (min 8 characters)"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full p-3 border border-pink-300 rounded-lg"
-                            disabled={loading}
-                        />
+                        <div className="flex align-center">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Password (min 8 characters)"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full p-3 border border-pink-300 rounded-lg"
+                                disabled={loading}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="m-[-2rem] transparent border-none cursor-pointer"
+                            >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
                         <button 
                             type="submit"
                             disabled={loading}
@@ -114,7 +125,7 @@ function SignupForm({ onRegister, onBack }: SignupFormProps) {
                 message={error}
                 isVisible={showErrorPopup}
                 onClose={closeErrorPopup}
-                duration={0} // Don't auto-close, user must click
+                duration={0} 
             />
 
             {/* Error Toast - for validation errors */}

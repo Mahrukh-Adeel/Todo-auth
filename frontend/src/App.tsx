@@ -4,11 +4,7 @@ import SignupForm from "./components/SignupForm";
 import TodoList from "./components/TodoList";
 import type { Todo } from "./types/todo";
 import type { User } from "./types/user";
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:5001';
-
-axios.defaults.baseURL = API_BASE_URL;
+import { auth, todos as todoAPI } from './api/api';
 
 function App(){
   const [mode, setMode] = useState('');
@@ -16,64 +12,52 @@ function App(){
   const [todos, setTodos] = useState<Todo[]>([]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    if (token && userData) {
-      setUser(JSON.parse(userData));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    auth.init();
+    const token = auth.getStoredToken();
+    
+    if (token) {
+      setMode('todos');
       fetchTodos();
     }
   }, []);
 
   const fetchTodos = async () => {
     try {
-      const response = await axios.get('/api/todos');
-      setTodos(response.data);
+      const todoList = await todoAPI.getAll();
+      setTodos(todoList);
     } catch (error) {
       console.error('Failed to fetch todos:', error);
+      handleTokenError();
     }
+  };
+
+  const handleTokenError = () => {
+    auth.logout();
+    setUser(null);
+    setTodos([]);
+    setMode('');
   };
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post('/api/auth/login', {
-        email,
-        password
-      });
-
-      const { token, user } = response.data;
+      const { token, user } = await auth.login(email, password);
       
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
+      auth.setAuthToken(token);
       setUser(user);
       setMode('todos');
       await fetchTodos();
       
     } catch (error: unknown) {
       console.error('Login failed:', error);
-      if (axios.isAxiosError(error)) {
-        throw new Error(error.response?.data?.error || 'Login failed');
-      }
-      throw new Error('Login failed');
+      throw error; 
     }
   };
 
   const register = async (username: string, email: string, password: string) => {
     try {
-      const response = await axios.post('/api/auth/register', {
-        username,
-        email,
-        password
-      });
-
-      const { token, user } = response.data;
+      const { token, user } = await auth.register(username, email, password);
       
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
+      auth.setAuthToken(token);
       setUser(user);
       setMode('todos');
       
@@ -81,17 +65,12 @@ function App(){
       
     } catch (error: unknown) {
       console.error('Registration failed:', error);
-      if (axios.isAxiosError(error)) {
-        throw new Error(error.response?.data?.error || 'Registration failed');
-      }
-      throw new Error('Registration failed');
+      throw error;
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    delete axios.defaults.headers.common['Authorization'];
+    auth.logout();
     setUser(null);
     setTodos([]);
     setMode('');
@@ -99,8 +78,8 @@ function App(){
 
   const handleAddTodo = async (text: string) => {
     try {
-      const response = await axios.post('/api/todos', { text });
-      setTodos([...todos, response.data]);
+      const newTodo = await todoAPI.create(text);
+      setTodos([...todos, newTodo]);
     } catch (error) {
       console.error('Failed to add todo:', error);
     }
@@ -111,10 +90,10 @@ function App(){
     if (!todoToUpdate) return;
 
     try {
-      const response = await axios.patch(`/api/todos/${id}`, {
+      const updatedTodo = await todoAPI.update(id, {
         completed: !todoToUpdate.completed,
       });
-      setTodos(todos.map((todo) => (todo._id === id ? response.data : todo)));
+      setTodos(todos.map((todo) => (todo._id === id ? updatedTodo : todo)));
     } catch (error) {
       console.error('Failed to update todo:', error);
     }
@@ -122,7 +101,7 @@ function App(){
 
   const handleDelete = async (id: string) => {
     try {
-      await axios.delete(`/api/todos/${id}`);
+      await todoAPI.delete(id);
       setTodos(todos.filter((todo) => todo._id !== id));
     } catch (error) {
       console.error('Failed to delete todo:', error);
@@ -131,22 +110,30 @@ function App(){
 
   const handleEdit = async (id: string, newText: string) => {
     try {
-      const response = await axios.patch(`/api/todos/${id}`, {
+      const updatedTodo = await todoAPI.update(id, {
         text: newText,
       });
-      setTodos(todos.map((todo) => (todo._id === id ? response.data : todo)));
+      setTodos(todos.map((todo) => (todo._id === id ? updatedTodo : todo)));
     } catch (error) {
       console.error('Failed to update todo:', error);
     }
   };
 
-  if (user && mode === 'todos') {
+  const handleAddButtonClick = () => {
+    const input = document.getElementById('todo-input') as HTMLInputElement;
+    if (input && input.value.trim()) {
+      handleAddTodo(input.value.trim());
+      input.value = '';
+    }
+  };
+
+  if (auth.isLoggedIn() && mode === 'todos') {
     return (
       <div className="p-4 w-full h-screen bg-rose-50">
         <div className="max-w-2xl mx-auto">
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl font-bold text-pink-800">
-              Welcome, {user.username}!
+              Welcome{user?.username ? `, ${user.username}` : ''}!
             </h1>
             <button
               onClick={logout}
@@ -172,13 +159,7 @@ function App(){
               }}
             />
             <button
-              onClick={() => {
-                const input = document.getElementById('todo-input') as HTMLInputElement;
-                if (input && input.value.trim()) {
-                  handleAddTodo(input.value.trim());
-                  input.value = '';
-                }
-              }}
+              onClick={handleAddButtonClick}
               className="bg-pink-500 text-white px-4 py-1 rounded hover:bg-pink-600 font-medium"
             >
               Add

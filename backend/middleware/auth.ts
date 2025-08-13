@@ -1,10 +1,4 @@
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
-}
+import { verifyToken } from '../utils/jwt';
 
 const authenticate = async (req:any, res:any, next:any) =>{
   const token = req.header("Authorization")?.replace('Bearer ', '');
@@ -13,7 +7,7 @@ const authenticate = async (req:any, res:any, next:any) =>{
   }
 
   try{
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = verifyToken(token) as any;
     req.userId = decoded.id;
     next();
   } catch (error){

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import ErrorPopup from "./ErrorPopup";
 import Toast from "./Toast";
+import { Eye, EyeOff } from "lucide-react";
+
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -14,6 +16,7 @@ function LoginForm({ onLogin, onBack }: LoginFormProps) {
     const [error, setError] = useState('');
     const [showErrorPopup, setShowErrorPopup] = useState(false);
     const [showErrorToast, setShowErrorToast] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -65,14 +68,23 @@ function LoginForm({ onLogin, onBack }: LoginFormProps) {
                             className="w-full p-3 border border-pink-300 rounded-lg"
                             disabled={loading}
                         />
-                        <input
-                            type="password"
-                            placeholder="Password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full p-3 border border-pink-300 rounded-lg"
-                            disabled={loading}
-                        />
+                        <div className="flex align-center">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full p-3 border border-pink-300 rounded-lg"
+                                disabled={loading}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="m-[-2rem] transparent border-none cursor-pointer"
+                            >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
                         <button 
                             type="submit"
                             disabled={loading}

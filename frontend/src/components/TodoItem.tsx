@@ -12,6 +12,19 @@ const TodoItem = ({ todo, onToggle, onDelete, onEdit }: TodoProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(todo.text);
 
+  const handleSave = () => {
+    const trimmedText = editedText.trim();
+    if (trimmedText.length > 0) {
+      onEdit(todo._id, trimmedText);
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditedText(todo.text); 
+    setIsEditing(false);
+  };
+
   return (
     <div className="grid grid-cols-[1fr,auto,auto,auto] gap-2 items-center p-2 border-b border-pink-200 bg-rose-50">
       {isEditing ? (
@@ -21,23 +34,22 @@ const TodoItem = ({ todo, onToggle, onDelete, onEdit }: TodoProps) => {
             onChange={(e) => setEditedText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                onEdit(todo._id, editedText);
-                setIsEditing(false);
+                handleSave();
+              }
+              if (e.key === "Escape") {
+                handleCancel();
               }
             }}
             className="border border-pink-300 px-2 py-1 col-span-1 rounded focus:border-pink-400"
           />
           <button
-            onClick={() => {
-              onEdit(todo._id, editedText);
-              setIsEditing(false);
-            }}
+            onClick={handleSave}
             className="px-4 py-1 text-sm bg-pink-500 text-white rounded w-20 border border-pink-600 font-bold hover:bg-pink-600"
           >
             Save
           </button>
           <button
-            onClick={() => setIsEditing(false)}
+            onClick={handleCancel}
             className="px-4 py-1 text-sm bg-purple-500 text-white rounded w-20 border border-purple-600 font-bold hover:bg-purple-600"
           >
             Cancel

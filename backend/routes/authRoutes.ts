@@ -1,47 +1,72 @@
-import express from 'express';
-import jwt  from 'jsonwebtoken';
+import express, {Request, Response} from 'express';
 import UserModel from '../models/User';
+import { signToken } from '../utils/jwt';
+import { validateEmail, validateUsername } from '../utils/validation';
+import { validatePassword } from '../utils/password';
+import { createSuccessResponse, createErrorResponse } from '../utils/response';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-    throw new Error('JWT_SECRET environment variable is required');
-}
-router.post("/register", async (req,res) =>{
+router.post("/register", async (Request,Response) =>{
     try{
-        const {username, email, password} = req.body;
+        const {username, email, password} = Request.body;
+        
+        const emailValidation = validateEmail(email);
+        if (!emailValidation.isValid) {
+            return Response.status(400).json(createErrorResponse(emailValidation.message!));
+        }
+        
+        const usernameValidation = validateUsername(username);
+        if (!usernameValidation.isValid) {
+            return Response.status(400).json(createErrorResponse(usernameValidation.message!));
+        }
+        
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.isValid) {
+            return Response.status(400).json(createErrorResponse(passwordValidation.message!));
+        }
+        
         const existing = await UserModel.findOne({email});
         if (existing){
-            return res.status(400).json({ error: 'User already exists' });
+            return Response.status(400).json(createErrorResponse('User already exists'));
         }
         const user = new UserModel({username, email, password});
         await user.save();
-        const token = jwt.sign({ id: user._id }, JWT_SECRET);
-        res.json({token, user:{id:user._id, username, email}})
+        const token = signToken(String(user._id));
+        Response.json(createSuccessResponse({token, user:{id:user._id, username, email}}, 'Registration successful'))
     } catch(error){
-        res.status(500).json({ error: 'Registration failed' });
+        Response.status(500).json(createErrorResponse('Registration failed'));
     }
 });
 
-router.post("/login", async (req,res)=>{
-    try{
-        const {email, password} = req.body;
+router.post("/login", async (Request, Response) => {
+    try {
+        const { email, password } = Request.body;
+
+        // Validate input
+        const emailValidation = validateEmail(email);
+        if (!emailValidation.isValid) {
+            return Response.status(400).json(createErrorResponse(emailValidation.message!));
+        }
+        
+        if (!password) {
+            return Response.status(400).json(createErrorResponse('Password is required'));
+        }
+        
         const user = await UserModel.findOne({email});
         if (!user){
-            return res.status(400).json({ error: 'Invalid credentials' });
+            return Response.status(400).json(createErrorResponse('Invalid credentials'));
         }
         const isValid = await user.comparePassword(password);
         if (!isValid) {
-        return res.status(400).json({ error: 'Invalid password' });
+        return Response.status(400).json(createErrorResponse('Invalid credentials'));
         }
-        const token = jwt.sign({id:user._id}, JWT_SECRET)
-        res.json({
+        const token = signToken(String(user._id));
+        Response.json(createSuccessResponse({
             token,
             user:{id:user._id, username: user.username, email:user.email}
-        })
+        }, 'Login successful'))
     } catch (error){
-        res.status(500).json({error: "Login Failed"});
+        Response.status(500).json(createErrorResponse("Login Failed"));
     }
 });
 
